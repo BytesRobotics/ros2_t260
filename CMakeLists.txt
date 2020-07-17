@@ -17,9 +17,28 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(rclcpp REQUIRED)
+
+find_package(realsense2)
+if(NOT realsense2_FOUND)
+  message(FATAL_ERROR "\n\n Intel RealSense SDK 2.0 is missing, please install it from https://github.com/IntelRealSense/librealsense/releases\n\n")
+endif()
+find_library(realsense2_LIBRARIES realsense2)
+find_path(realsense2_INCLUDE_DIRS librealsense2/rs.hpp)
+
+add_executable(t260_node
+        src/t260_node.cpp
+        src/t260.cpp)
+
+include_directories(t260_node
+        include/ros2_t260
+        ${realsense2_INCLUDE_DIRS}
+        )
+
+ament_target_dependencies(t260_node
+        rclcpp
+        realsense2
+        )
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
