@@ -11,8 +11,10 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-//class T260{
-//    T260()
-//};
+class T260: public rclcpp::Node {
+    int private_num_;
+public:
+    T260();
+};
 
 #endif //ROS2_T260_ROS_T260_H
