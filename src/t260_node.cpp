@@ -4,58 +4,12 @@
 
 #include "t260.h"
 
-// https://github.com/IntelRealSense/librealsense/blob/master/examples/ar-advanced/rs-ar-advanced.cpp
-//void raw_file_from_bytes(const std::string& filename, const std::vector<uint8_t> bytes)
-//{
-//    std::ofstream file(filename, std::ios::binary | std::ios::trunc);
-//    if (!file.good())
-//        throw std::runtime_error("Invalid binary file specified. Verify the target path and location permissions");
-//    file.write((char*)bytes.data(), bytes.size());
-//}
-//
-//std::vector<uint8_t> bytes_from_raw_file(const std::string& filename)
-//{
-//    std::ifstream file(filename.c_str(), std::ios::binary);
-//    if (!file.good())
-//        throw std::runtime_error("Invalid binary file specified. Verify the source path and location permissions");
-//
-//    // Determine the file length
-//    file.seekg(0, std::ios_base::end);
-//    std::size_t size = file.tellg();
-//    if (!size)
-//        throw std::runtime_error("Invalid binary file -zero-size");
-//    file.seekg(0, std::ios_base::beg);
-//
-//    // Create a vector to store the data
-//    std::vector<uint8_t> v(size);
-//
-//    // Load the data
-//    file.read((char*)&v[0], size);
-//
-//    return v;
-//}
-
-//rs2_pose identity_pose()
-//{
-//    // Return an identity pose (no translation, no rotation)
-//    rs2_pose pose;
-//    pose.translation.x = 0;
-//    pose.translation.y = 0;
-//    pose.translation.z = 0;
-//    pose.rotation.x = 0;
-//    pose.rotation.y = 0;
-//    pose.rotation.z = 0;
-//    pose.rotation.w = 1;
-//    return pose;
-//}
-
 int main(int argc, char ** argv) {
     rclcpp::init(argc, argv);
     auto t260_node = std::make_shared<T260>();
     rclcpp::spin(t260_node->get_node_base_interface());
     rclcpp::shutdown();
 
-//    std::mutex mutex;
 
     // Define frame callback
     // The callback is executed on a sensor thread and can be called simultaneously from multiple sensors

@@ -39,12 +39,17 @@
 #include "image_transport/image_transport.hpp"
 #include "cv_bridge/cv_bridge.h"
 
+#include "map_msgs/srv/save_map.hpp"
 
 class T260: public rclcpp_lifecycle::LifecycleNode {
+
+    const std::string virtual_object_guid_ = "node0";
+
     std::mutex mutex_;
     rs2::context ctx_; // Create librealsense context for managing devices
     rs2::pipeline pipe_;
     rs2::config cfg_;
+    std::shared_ptr<rs2::pose_sensor> tm_sensor_;
     rs2::pipeline_profile pipe_profile_;
     std::shared_ptr<rs2::wheel_odometer> wheel_odometer_;
 
@@ -54,10 +59,15 @@ class T260: public rclcpp_lifecycle::LifecycleNode {
 
     /// Publishers
     std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>> odom_pub_;
+    std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>> relocalization_pub_;
+
     // See (https://answers.ros.org/question/312870/ros2-node-pointer-from-a-lifecyclenode/) for issue
     // image_transport::ImageTransport left_it_, right_it_;
 
     /// Subscribers
+
+    /// Services
+    rclcpp::Service<map_msgs::srv::SaveMap>::SharedPtr save_map_srv_, load_map_srv_;
 
     /// Dynamically reconfigurable parameters
     rclcpp::AsyncParametersClient::SharedPtr parameters_client_;
@@ -71,6 +81,16 @@ class T260: public rclcpp_lifecycle::LifecycleNode {
     std::string odom_frame_, child_frame_, mounted_frame_;
     bool publish_odom_, publish_tf_;
     double pose_cov_, rotation_cov_;
+
+    void notifications_cb(const rs2::notification &n);
+
+    void main_cb(const rs2::frame& frame);
+
+    void save_map_cb(std::shared_ptr<map_msgs::srv::SaveMap::Request> request,
+            std::shared_ptr<map_msgs::srv::SaveMap::Response> response);
+
+    void load_map_cb(std::shared_ptr<map_msgs::srv::SaveMap::Request> request,
+                     std::shared_ptr<map_msgs::srv::SaveMap::Response> response);
 
     void configure_params();
 
