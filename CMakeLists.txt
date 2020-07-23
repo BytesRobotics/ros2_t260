@@ -18,10 +18,18 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
+find_package(OpenCV 4 REQUIRED)
+find_package(nav_msgs REQUIRED)
 
 find_package(realsense2)
 if(NOT realsense2_FOUND)
-  message(FATAL_ERROR "\n\n Intel RealSense SDK 2.0 is missing, please install it from https://github.com/IntelRealSense/librealsense/releases\n\n")
+  message(FATAL_ERROR "\n\n Intel RealSense SDK 2.0 is missing,
+  please install it from https://github.com/IntelRealSense/librealsense/releases\n\n")
 endif()
 find_library(realsense2_LIBRARIES realsense2)
 find_path(realsense2_INCLUDE_DIRS librealsense2/rs.hpp)
@@ -38,6 +46,13 @@ include_directories(t260_node
 ament_target_dependencies(t260_node
         rclcpp
         realsense2
+        OpenCV
+        cv_bridge
+        tf2
+        tf2_ros
+        rclcpp_lifecycle
+        lifecycle_msgs
+        nav_msgs
         )
 
 if(BUILD_TESTING)
