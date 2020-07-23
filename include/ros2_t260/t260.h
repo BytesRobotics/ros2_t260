@@ -41,6 +41,7 @@
 
 #include "map_msgs/srv/save_map.hpp"
 
+// ros2 param set /t260_node calib_odom_file "/home/michael/Github/br_core/ws/src/deps/ros2_t260/config/calibration_odometry.json"
 class T260: public rclcpp_lifecycle::LifecycleNode {
 
     const std::string virtual_object_guid_ = "node0";
@@ -65,6 +66,8 @@ class T260: public rclcpp_lifecycle::LifecycleNode {
     // image_transport::ImageTransport left_it_, right_it_;
 
     /// Subscribers
+    std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> odom_in_sub_;
+    bool use_odom_in_{false};
 
     /// Services
     rclcpp::Service<map_msgs::srv::SaveMap>::SharedPtr save_map_srv_, load_map_srv_;
@@ -81,8 +84,11 @@ class T260: public rclcpp_lifecycle::LifecycleNode {
     std::string odom_frame_, child_frame_, mounted_frame_;
     bool publish_odom_, publish_tf_;
     double pose_cov_, rotation_cov_;
+    std::string calib_odom_file_; //https://github.com/IntelRealSense/librealsense/pull/3462
 
     void notifications_cb(const rs2::notification &n);
+
+    void odom_in_cb(const nav_msgs::msg::Odometry::SharedPtr msg);
 
     void main_cb(const rs2::frame& frame);
 

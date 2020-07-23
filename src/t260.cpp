@@ -53,6 +53,11 @@ rs2_pose identity_pose()
     return pose;
 }
 
+/**
+ * T260 node definitions
+ * @param node_name
+ * @param intra_process_comms
+ */
 
 T260::T260(const std::string& node_name, bool intra_process_comms):
 rclcpp_lifecycle::LifecycleNode(node_name,rclcpp::NodeOptions().use_intra_process_comms(intra_process_comms)),
@@ -70,6 +75,8 @@ T260::on_configure(const rclcpp_lifecycle::State &){
     odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("odom", rclcpp::SensorDataQoS());
     relocalization_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("relocalization",
             rclcpp::SystemDefaultsQoS().transient_local().reliable());
+    odom_in_sub_ = this->create_subscription<nav_msgs::msg::Odometry>("/wheel/odom", rclcpp::SensorDataQoS(),
+            std::bind(&T260::odom_in_cb, this, std::placeholders::_1));
 
 //    image_transport::Publisher left_pub_ = left_it_.advertise("left/image", 1);
 //    image_transport::Publisher right_pub_ = right_it_.advertise("right/image", 1);
@@ -99,7 +106,30 @@ T260::on_configure(const rclcpp_lifecycle::State &){
                 dev.hardware_reset();
                 RCLCPP_INFO(this->get_logger(), "Hardware reset");
             }
-            wheel_odometer_  = std::make_shared<rs2::wheel_odometer>(dev.first<rs2::wheel_odometer>());
+            /// Setup wheel odom input if calibration file is provided
+            if(!calib_odom_file_.empty()){
+                std::ifstream calibrationFile(calib_odom_file_);
+                if (!calibrationFile)
+                {
+                    RCLCPP_FATAL_STREAM(this->get_logger(),
+                            "calibration_odometry file not found. calib_odom_file = " << calib_odom_file_);
+                    throw std::runtime_error("calibration_odometry file not found");
+                }
+                wheel_odometer_  = std::make_shared<rs2::wheel_odometer>(dev.first<rs2::wheel_odometer>());
+                const std::string json_str((std::istreambuf_iterator<char>(calibrationFile)),
+                                           std::istreambuf_iterator<char>());
+                const std::vector<uint8_t> wo_calib(json_str.begin(), json_str.end());
+
+                if (!wheel_odometer_->load_wheel_odometery_config(wo_calib))
+                {
+                    RCLCPP_FATAL_STREAM(this->get_logger(),
+                            "Format error in calibration_odometry file: " << calib_odom_file_);
+                    throw std::runtime_error("Format error in calibration_odometry file");
+                }
+                use_odom_in_ = true;
+            } else {
+                RCLCPP_INFO(this->get_logger(), "No calibration file provided, odom is disabled!");
+            }
             device_available = true;
         }
     }
@@ -158,89 +188,14 @@ T260::on_cleanup(const rclcpp_lifecycle::State &){
     load_map_srv_.reset();
     tm_sensor_.reset();
     relocalization_pub_.reset();
+    wheel_odometer_.reset();
+    odom_in_sub_.reset();
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 T260::on_shutdown(const rclcpp_lifecycle::State & state){
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
-}
-
-void T260::configure_params() {
-    hardware_reset_ = this->declare_parameter("hardware_reset", true);
-    serial_num_ = this->declare_parameter("serial_number", "");
-    enable_fisheye_streams_ = this->declare_parameter("enable_fisheye_streams", true);
-    enable_pose_stream_ = this->declare_parameter("enable_pose_stream", true);
-
-    enable_mapping_ = this->declare_parameter("enable_mapping", true);
-    enable_dynamic_calibration_ = this->declare_parameter("enable_dynamic_calibration", true);
-    enable_relocalization_ = this->declare_parameter("enable_relocalization", true);
-    enable_pose_jumping_ = this->declare_parameter("enable_pose_jumping", true);
-    enable_map_preservation_ = this->declare_parameter("enable_map_preservation", false);
-
-    publish_odom_ = this->declare_parameter("publish_odom", true);
-    publish_tf_ = this->declare_parameter("publish_tf", false);
-
-    odom_frame_ = this->declare_parameter("odom_frame", "odom");
-    child_frame_ = this->declare_parameter("child_frame", "base_link");
-    mounted_frame_ = this->declare_parameter("mounted_frame", "t260_link"); // Not implemented yet
-
-    pose_cov_ = this->declare_parameter("position_covariance", 0.1);
-    rotation_cov_ = this->declare_parameter("rotation_covariance", 0.1);
-
-
-    /// Update parameters dynamically
-    parameters_client_ = std::make_shared<rclcpp::AsyncParametersClient>(
-            this->get_node_base_interface(),this->get_node_topics_interface(),
-            this->get_node_graph_interface(), this->get_node_services_interface());
-    auto on_parameter_event_callback = [this](const rcl_interfaces::msg::ParameterEvent::SharedPtr event) -> void {
-        std::stringstream ss;
-        ss << "\nParameter event:\n changed parameters:";
-        for (auto &changed_parameter : event->changed_parameters) {
-            ss << "\n  " << changed_parameter.name;
-            if (changed_parameter.name == "hardware_reset") {
-                hardware_reset_ = changed_parameter.value.bool_value;
-            } else if (changed_parameter.name == "serial_number") {
-                serial_num_ = changed_parameter.value.string_value;
-            } else if (changed_parameter.name == "enable_fisheye_streams") {
-                enable_fisheye_streams_ = changed_parameter.value.bool_value;
-            } else if (changed_parameter.name == "enable_pose_stream") {
-                enable_pose_stream_ = changed_parameter.value.bool_value;
-            } else if (changed_parameter.name == "enable_mapping") {
-                enable_mapping_ = changed_parameter.value.bool_value;
-            } else if (changed_parameter.name == "enable_dynamic_calibration") {
-                enable_dynamic_calibration_ = changed_parameter.value.bool_value;
-            } else if (changed_parameter.name == "enable_relocalization") {
-                enable_relocalization_ = changed_parameter.value.bool_value;
-            } else if (changed_parameter.name == "enable_pose_jumping") {
-                enable_pose_jumping_ = changed_parameter.value.bool_value;
-            } else if (changed_parameter.name == "enable_map_preservation") {
-                enable_map_preservation_ = changed_parameter.value.bool_value;
-            }  else if (changed_parameter.name == "publish_odom") {
-                publish_odom_ = changed_parameter.value.bool_value;
-            } else if (changed_parameter.name == "publish_tf") {
-                publish_tf_ = changed_parameter.value.bool_value;
-            } else if (changed_parameter.name == "odom_frame") {
-                odom_frame_ = changed_parameter.value.string_value;
-            } else if (changed_parameter.name == "child_frame") {
-                child_frame_ = changed_parameter.value.string_value;
-            } else if (changed_parameter.name == "mounted_frame") {
-                mounted_frame_ = changed_parameter.value.string_value;
-            } else if (changed_parameter.name == "position_covariance") {
-                pose_cov_ = changed_parameter.value.double_value;
-            } else if (changed_parameter.name == "rotation_covariance") {
-                rotation_cov_ = changed_parameter.value.double_value;
-            } else if (changed_parameter.name == "save_map") {
-                rotation_cov_ = changed_parameter.value.double_value;
-            }
-
-            ss << "\n";
-            RCLCPP_DEBUG(this->get_logger(), ss.str().c_str());
-        }
-    };
-
-    /// Setup callback for changes to parameters.
-    parameter_event_sub_ = parameters_client_->on_parameter_event(on_parameter_event_callback);
 }
 
 void T260::save_map_cb(const std::shared_ptr<map_msgs::srv::SaveMap::Request> request,
@@ -254,14 +209,22 @@ void T260::save_map_cb(const std::shared_ptr<map_msgs::srv::SaveMap::Request> re
     raw_file_from_bytes(out_map_filepath, tm_sensor_->export_localization_map());
 }
 
-void callback(const rs2::frame& frame){
-    std::cout << "here" << std::endl;
+void T260::odom_in_cb(const nav_msgs::msg::Odometry::SharedPtr msg){
+    if(use_odom_in_) {
+        rs2_vector velocity{-(float) (msg->twist.twist.linear.y),
+                            (float) (msg->twist.twist.linear.z),
+                            -(float) (msg->twist.twist.linear.x)};
+        RCLCPP_DEBUG_STREAM(this->get_logger(), "Add odom: " << velocity.x << ", " <<
+        velocity.y << ", " << velocity.z);
+        wheel_odometer_->send_wheel_odometry(0, 0, velocity);
+    }
 }
+
 
 void T260::load_map_cb(const std::shared_ptr<map_msgs::srv::SaveMap::Request> request,
                        std::shared_ptr<map_msgs::srv::SaveMap::Response> response) {
-    pipe_.stop();
     RCLCPP_INFO(this->get_logger(), "Loading map from: %s", request->filename.data.c_str());
+    pipe_.stop();
     tm_sensor_->import_localization_map(bytes_from_raw_file(request->filename.data));
     pipe_profile_ = pipe_.start(cfg_, std::bind(&T260::main_cb, this, std::placeholders::_1));
 }
@@ -367,7 +330,6 @@ void T260::main_cb(const rs2::frame& frame) {
 void T260::notifications_cb(const rs2::notification &n){
     if (n.get_category() == RS2_NOTIFICATION_CATEGORY_POSE_RELOCALIZATION) {
         RCLCPP_INFO(this->get_logger(), "Relocalization event detected");
-
         rs2_pose pose_transform;
         // Get static node if available
         if (tm_sensor_->get_static_node(virtual_object_guid_, pose_transform.translation,
@@ -385,4 +347,84 @@ void T260::notifications_cb(const rs2::notification &n){
             relocalization_pub_->publish(pose_msg);
         }
     }
+}
+
+void T260::configure_params() {
+    hardware_reset_ = this->declare_parameter("hardware_reset", true);
+    serial_num_ = this->declare_parameter("serial_number", "");
+    enable_fisheye_streams_ = this->declare_parameter("enable_fisheye_streams", true);
+    enable_pose_stream_ = this->declare_parameter("enable_pose_stream", true);
+
+    enable_mapping_ = this->declare_parameter("enable_mapping", true);
+    enable_dynamic_calibration_ = this->declare_parameter("enable_dynamic_calibration", true);
+    enable_relocalization_ = this->declare_parameter("enable_relocalization", true);
+    enable_pose_jumping_ = this->declare_parameter("enable_pose_jumping", true);
+    enable_map_preservation_ = this->declare_parameter("enable_map_preservation", false);
+
+    publish_odom_ = this->declare_parameter("publish_odom", true);
+    publish_tf_ = this->declare_parameter("publish_tf", false);
+
+    odom_frame_ = this->declare_parameter("odom_frame", "odom");
+    child_frame_ = this->declare_parameter("child_frame", "base_link");
+    mounted_frame_ = this->declare_parameter("mounted_frame", "t260_link"); // Not implemented yet
+
+    pose_cov_ = this->declare_parameter("position_covariance", 0.1);
+    rotation_cov_ = this->declare_parameter("rotation_covariance", 0.1);
+
+    calib_odom_file_ = this->declare_parameter("calib_odom_file", "");
+
+    /// Update parameters dynamically
+    parameters_client_ = std::make_shared<rclcpp::AsyncParametersClient>(
+            this->get_node_base_interface(),this->get_node_topics_interface(),
+            this->get_node_graph_interface(), this->get_node_services_interface());
+    auto on_parameter_event_callback = [this](const rcl_interfaces::msg::ParameterEvent::SharedPtr event) -> void {
+        std::stringstream ss;
+        ss << "\nParameter event:\n changed parameters:";
+        for (auto &changed_parameter : event->changed_parameters) {
+            ss << "\n  " << changed_parameter.name;
+            if (changed_parameter.name == "hardware_reset") {
+                hardware_reset_ = changed_parameter.value.bool_value;
+            } else if (changed_parameter.name == "serial_number") {
+                serial_num_ = changed_parameter.value.string_value;
+            } else if (changed_parameter.name == "enable_fisheye_streams") {
+                enable_fisheye_streams_ = changed_parameter.value.bool_value;
+            } else if (changed_parameter.name == "enable_pose_stream") {
+                enable_pose_stream_ = changed_parameter.value.bool_value;
+            } else if (changed_parameter.name == "enable_mapping") {
+                enable_mapping_ = changed_parameter.value.bool_value;
+            } else if (changed_parameter.name == "enable_dynamic_calibration") {
+                enable_dynamic_calibration_ = changed_parameter.value.bool_value;
+            } else if (changed_parameter.name == "enable_relocalization") {
+                enable_relocalization_ = changed_parameter.value.bool_value;
+            } else if (changed_parameter.name == "enable_pose_jumping") {
+                enable_pose_jumping_ = changed_parameter.value.bool_value;
+            } else if (changed_parameter.name == "enable_map_preservation") {
+                enable_map_preservation_ = changed_parameter.value.bool_value;
+            }  else if (changed_parameter.name == "publish_odom") {
+                publish_odom_ = changed_parameter.value.bool_value;
+            } else if (changed_parameter.name == "publish_tf") {
+                publish_tf_ = changed_parameter.value.bool_value;
+            } else if (changed_parameter.name == "odom_frame") {
+                odom_frame_ = changed_parameter.value.string_value;
+            } else if (changed_parameter.name == "child_frame") {
+                child_frame_ = changed_parameter.value.string_value;
+            } else if (changed_parameter.name == "mounted_frame") {
+                mounted_frame_ = changed_parameter.value.string_value;
+            } else if (changed_parameter.name == "position_covariance") {
+                pose_cov_ = changed_parameter.value.double_value;
+            } else if (changed_parameter.name == "rotation_covariance") {
+                rotation_cov_ = changed_parameter.value.double_value;
+            } else if (changed_parameter.name == "save_map") {
+                rotation_cov_ = changed_parameter.value.double_value;
+            } else if (changed_parameter.name == "calib_odom_file") {
+                calib_odom_file_ = changed_parameter.value.string_value;
+            }
+
+            ss << "\n";
+            RCLCPP_DEBUG(this->get_logger(), ss.str().c_str());
+        }
+    };
+
+    /// Setup callback for changes to parameters.
+    parameter_event_sub_ = parameters_client_->on_parameter_event(on_parameter_event_callback);
 }
