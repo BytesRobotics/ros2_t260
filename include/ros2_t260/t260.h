@@ -31,6 +31,14 @@
 #include "tf2/convert.h"
 
 #include "nav_msgs/msg/odometry.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/vector3.hpp"
+#include "geometry_msgs/msg/vector3_stamped.hpp"
+
+#include "image_transport/image_transport.hpp"
+#include "cv_bridge/cv_bridge.h"
+
 
 class T260: public rclcpp_lifecycle::LifecycleNode {
     std::mutex mutex_;
@@ -46,7 +54,8 @@ class T260: public rclcpp_lifecycle::LifecycleNode {
 
     /// Publishers
     std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>> odom_pub_;
-
+    // See (https://answers.ros.org/question/312870/ros2-node-pointer-from-a-lifecyclenode/) for issue
+    // image_transport::ImageTransport left_it_, right_it_;
 
     /// Subscribers
 
@@ -59,8 +68,9 @@ class T260: public rclcpp_lifecycle::LifecycleNode {
     bool enable_mapping_, enable_pose_jumping_, enable_relocalization_, enable_dynamic_calibration_,
     enable_map_preservation_;
     std::string serial_num_;
-    std::string odom_frame_, child_frame_;
+    std::string odom_frame_, child_frame_, mounted_frame_;
     bool publish_odom_, publish_tf_;
+    double pose_cov_, rotation_cov_;
 
     void configure_params();
 

@@ -25,6 +25,8 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
 find_package(OpenCV 4 REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+
 
 find_package(realsense2)
 if(NOT realsense2_FOUND)
@@ -53,6 +55,7 @@ ament_target_dependencies(t260_node
         rclcpp_lifecycle
         lifecycle_msgs
         nav_msgs
+        geometry_msgs
         )
 
 if(BUILD_TESTING)
