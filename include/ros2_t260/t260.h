@@ -100,6 +100,10 @@ class T260 : public rclcpp_lifecycle::LifecycleNode {
 
   void configure_params();
 
+  inline void rs2_pose_to_transform(rs2_pose& rs2_pose, tf2::Transform& transform);
+
+  inline void get_odom_to_base_tf(tf2::Transform& odom_to_camera, tf2::Transform& odom_to_base);
+
 public:
   explicit T260(const std::string &node_name = "t260_node", bool intra_process_comms = false);
 

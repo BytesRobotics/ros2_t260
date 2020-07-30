@@ -59,13 +59,13 @@ rs2_pose identity_pose() {
 T260::T260(const std::string &node_name, bool intra_process_comms) :
   rclcpp_lifecycle::LifecycleNode(node_name, rclcpp::NodeOptions().use_intra_process_comms(intra_process_comms)),
   transform_listener_(tf_buffer_),
-  tf_broadcaster_(this) {
+  tf_broadcaster_(this)
+{
   configure_params();
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 T260::on_configure(const rclcpp_lifecycle::State &) {
-
   RCLCPP_INFO(this->get_logger(), "Configuring T260 Node");
 
   odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("odom", rclcpp::SensorDataQoS());
@@ -228,7 +228,7 @@ void T260::load_map_cb(const std::shared_ptr<map_msgs::srv::SaveMap::Request> re
 
 void T260::main_cb(const rs2::frame &frame) {
   std::lock_guard<std::mutex> lock(mutex_);
-  auto now = this->get_clock()->now();
+  auto now = this->now();
   if (auto fp = frame.as<rs2::pose_frame>()) {
     auto pose_data = fp.get_pose_data();
 
@@ -236,26 +236,26 @@ void T260::main_cb(const rs2::frame &frame) {
     double cov_twist(rotation_cov_ * pow(10, 1 - (int) pose_data.tracker_confidence));
 
     geometry_msgs::msg::PoseStamped pose_msg;
-    pose_msg.pose.position.x = -pose_data.translation.z;
-    pose_msg.pose.position.y = -pose_data.translation.x;
-    pose_msg.pose.position.z = pose_data.translation.y;
-    pose_msg.pose.orientation.x = -pose_data.rotation.z;
-    pose_msg.pose.orientation.y = -pose_data.rotation.x;
-    pose_msg.pose.orientation.z = pose_data.rotation.y;
-    pose_msg.pose.orientation.w = pose_data.rotation.w;
+    pose_msg.header.stamp = now;
+    pose_msg.header.frame_id = odom_frame_;
+
+    tf2::Transform odom_to_camera;
+    rs2_pose_to_transform(pose_data, odom_to_camera);
+
+    tf2::Transform odom_to_base;
+    get_odom_to_base_tf(odom_to_camera, odom_to_base);
 
     geometry_msgs::msg::TransformStamped transform_msg;
+    transform_msg.transform.translation.x = odom_to_base.getOrigin().x();
+    transform_msg.transform.translation.y = odom_to_base.getOrigin().y();
+    transform_msg.transform.translation.z = odom_to_base.getOrigin().z();
+    transform_msg.transform.rotation.x = odom_to_base.getRotation().x();
+    transform_msg.transform.rotation.y = odom_to_base.getRotation().y();
+    transform_msg.transform.rotation.z = odom_to_base.getRotation().z();
+    transform_msg.transform.rotation.w = odom_to_base.getRotation().w();
     transform_msg.header.stamp = now;
     transform_msg.header.frame_id = odom_frame_;
     transform_msg.child_frame_id = base_frame_;
-    transform_msg.transform.translation.x = pose_msg.pose.position.x;
-    transform_msg.transform.translation.y = pose_msg.pose.position.y;
-    transform_msg.transform.translation.z = pose_msg.pose.position.z;
-    transform_msg.transform.rotation.x = pose_msg.pose.orientation.x;
-    transform_msg.transform.rotation.y = pose_msg.pose.orientation.y;
-    transform_msg.transform.rotation.z = pose_msg.pose.orientation.z;
-    transform_msg.transform.rotation.w = pose_msg.pose.orientation.w;
-
     if (publish_tf_) {
       tf_broadcaster_.sendTransform(transform_msg);
     }
@@ -328,18 +328,23 @@ void T260::notifications_cb(const rs2::notification &n) {
     RCLCPP_INFO(this->get_logger(), "Relocalization event detected");
     rs2_pose pose_transform;
     // Get static node if available
-    if (tm_sensor_->get_static_node(virtual_object_guid_, pose_transform.translation,
-                                    pose_transform.rotation)) {
-      geometry_msgs::msg::PoseStamped pose_msg;
-      pose_msg.header.stamp = this->get_clock()->now();
-      pose_msg.header.frame_id = camera_frame_;
-      pose_msg.pose.position.x = -pose_transform.translation.z;
-      pose_msg.pose.position.y = -pose_transform.translation.x;
-      pose_msg.pose.position.z = pose_transform.translation.y;
-      pose_msg.pose.orientation.x = -pose_transform.rotation.z;
-      pose_msg.pose.orientation.y = -pose_transform.rotation.x;
-      pose_msg.pose.orientation.z = pose_transform.rotation.y;
-      pose_msg.pose.orientation.w = pose_transform.rotation.w;
+    if (tm_sensor_->get_static_node(virtual_object_guid_, pose_transform.translation,pose_transform.rotation)) {
+
+      while(!tf_buffer_.canTransform(odom_frame_, camera_frame_, tf2::TimePointZero)) {
+        RCLCPP_ERROR(this->get_logger(), "Unable to get transform between %s and %s.", odom_frame_.c_str(), camera_frame_.c_str());
+      }
+
+      geometry_msgs::msg::PoseStamped pose_msg, transformed_pose_msg;
+      pose_msg.header.stamp = this->now();
+      pose_msg.header.frame_id = odom_frame_;
+
+      tf2::Transform odom_to_camera;
+      rs2_pose_to_transform(pose_transform, odom_to_camera);
+
+      tf2::Transform odom_to_base;
+      get_odom_to_base_tf(odom_to_camera, odom_to_base);
+
+      tf2::toMsg(odom_to_base, pose_msg.pose);
       relocalization_pub_->publish(pose_msg);
     }
   }
@@ -362,7 +367,7 @@ void T260::configure_params() {
 
   odom_frame_ = this->declare_parameter("odom_frame", "odom");
   base_frame_ = this->declare_parameter("base_frame", "base_link");
-  camera_frame_ = this->declare_parameter("camera_frame", "t260_link"); // Not implemented yet
+  camera_frame_ = this->declare_parameter("camera_frame", "d430_link");
 
   pose_cov_ = this->declare_parameter("position_covariance", 0.1);
   rotation_cov_ = this->declare_parameter("rotation_covariance", 0.1);
@@ -423,4 +428,16 @@ void T260::configure_params() {
 
   /// Setup callback for changes to parameters.
   parameter_event_sub_ = parameters_client_->on_parameter_event(on_parameter_event_callback);
+}
+
+void T260::rs2_pose_to_transform(rs2_pose &rs2_pose, tf2::Transform &transform) {
+  transform.setOrigin({-rs2_pose.translation.z, -rs2_pose.translation.x, rs2_pose.translation.y});
+  transform.setRotation({-rs2_pose.rotation.z, -rs2_pose.rotation.x, rs2_pose.rotation.y, rs2_pose.rotation.w});
+}
+
+void T260::get_odom_to_base_tf(tf2::Transform &odom_to_camera, tf2::Transform &odom_to_base) {
+  auto base_to_camera_msg = tf_buffer_.lookupTransform(base_frame_, camera_frame_, tf2::TimePointZero);
+  tf2::Stamped<tf2::Transform> base_to_camera;
+  tf2::fromMsg(base_to_camera_msg, base_to_camera);
+  odom_to_base = odom_to_camera * base_to_camera.inverse();
 }
