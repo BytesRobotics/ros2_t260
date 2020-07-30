@@ -4,9 +4,9 @@
 
 #include "t260.h"
 
-int main(int argc, char ** argv) {
-    rclcpp::init(argc, argv);
-    auto t260_node = std::make_shared<T260>();
-    rclcpp::spin(t260_node->get_node_base_interface());
-    rclcpp::shutdown();
+int main(int argc, char **argv) {
+  rclcpp::init(argc, argv);
+  auto t260_node = std::make_shared<T260>();
+  rclcpp::spin(t260_node->get_node_base_interface());
+  rclcpp::shutdown();
 }

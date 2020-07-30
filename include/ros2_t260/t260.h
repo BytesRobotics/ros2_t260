@@ -42,81 +42,81 @@
 #include "map_msgs/srv/save_map.hpp"
 
 // ros2 param set /t260_node calib_odom_file "/home/michael/Github/br_core/ws/src/deps/ros2_t260/config/calibration_odometry.json"
-class T260: public rclcpp_lifecycle::LifecycleNode {
+class T260 : public rclcpp_lifecycle::LifecycleNode {
 
-    const std::string virtual_object_guid_ = "node0";
+  const std::string virtual_object_guid_ = "node0";
 
-    std::mutex mutex_;
-    rs2::context ctx_; // Create librealsense context for managing devices
-    rs2::pipeline pipe_;
-    rs2::config cfg_;
-    std::shared_ptr<rs2::pose_sensor> tm_sensor_;
-    rs2::pipeline_profile pipe_profile_;
-    std::shared_ptr<rs2::wheel_odometer> wheel_odometer_;
+  std::mutex mutex_;
+  rs2::context ctx_; // Create librealsense context for managing devices
+  rs2::pipeline pipe_;
+  rs2::config cfg_;
+  std::shared_ptr<rs2::pose_sensor> tm_sensor_;
+  rs2::pipeline_profile pipe_profile_;
+  std::shared_ptr<rs2::wheel_odometer> wheel_odometer_;
 
-    tf2::BufferCore tf_buffer_;
-    tf2_ros::TransformListener transform_listener_;
-    tf2_ros::TransformBroadcaster tf_broadcaster_;
+  tf2::BufferCore tf_buffer_;
+  tf2_ros::TransformListener transform_listener_;
+  tf2_ros::TransformBroadcaster tf_broadcaster_;
 
-    /// Publishers
-    std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>> odom_pub_;
-    std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>> relocalization_pub_;
+  /// Publishers
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>> odom_pub_;
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>> relocalization_pub_;
 
-    // See (https://answers.ros.org/question/312870/ros2-node-pointer-from-a-lifecyclenode/) for issue
-    // image_transport::ImageTransport left_it_, right_it_;
+  // See (https://answers.ros.org/question/312870/ros2-node-pointer-from-a-lifecyclenode/) for issue
+  // image_transport::ImageTransport left_it_, right_it_;
 
-    /// Subscribers
-    std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> odom_in_sub_;
-    bool use_odom_in_{false};
+  /// Subscribers
+  std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> odom_in_sub_;
+  bool use_odom_in_{false};
 
-    /// Services
-    rclcpp::Service<map_msgs::srv::SaveMap>::SharedPtr save_map_srv_, load_map_srv_;
+  /// Services
+  rclcpp::Service<map_msgs::srv::SaveMap>::SharedPtr save_map_srv_, load_map_srv_;
 
-    /// Dynamically reconfigurable parameters
-    rclcpp::AsyncParametersClient::SharedPtr parameters_client_;
-    rclcpp::Subscription<rcl_interfaces::msg::ParameterEvent>::SharedPtr parameter_event_sub_;
+  /// Dynamically reconfigurable parameters
+  rclcpp::AsyncParametersClient::SharedPtr parameters_client_;
+  rclcpp::Subscription<rcl_interfaces::msg::ParameterEvent>::SharedPtr parameter_event_sub_;
 
-    /// Parameters
-    bool hardware_reset_{}, enable_fisheye_streams_, enable_pose_stream_;
-    bool enable_mapping_, enable_pose_jumping_, enable_relocalization_, enable_dynamic_calibration_,
+  /// Parameters
+  bool hardware_reset_{}, enable_fisheye_streams_, enable_pose_stream_;
+  bool enable_mapping_, enable_pose_jumping_, enable_relocalization_, enable_dynamic_calibration_,
     enable_map_preservation_;
-    std::string serial_num_;
-    std::string odom_frame_, base_frame_, camera_frame_;
-    bool publish_odom_, publish_tf_;
-    double pose_cov_, rotation_cov_;
-    std::string calib_odom_file_; //https://github.com/IntelRealSense/librealsense/pull/3462
+  std::string serial_num_;
+  std::string odom_frame_, base_frame_, camera_frame_;
+  bool publish_odom_, publish_tf_;
+  double pose_cov_, rotation_cov_;
+  std::string calib_odom_file_; //https://github.com/IntelRealSense/librealsense/pull/3462
 
-    void notifications_cb(const rs2::notification &n);
+  void notifications_cb(const rs2::notification &n);
 
-    void odom_in_cb(const nav_msgs::msg::Odometry::SharedPtr msg);
+  void odom_in_cb(const nav_msgs::msg::Odometry::SharedPtr msg);
 
-    void main_cb(const rs2::frame& frame);
+  void main_cb(const rs2::frame &frame);
 
-    void save_map_cb(std::shared_ptr<map_msgs::srv::SaveMap::Request> request,
-            std::shared_ptr<map_msgs::srv::SaveMap::Response> response);
+  void save_map_cb(std::shared_ptr<map_msgs::srv::SaveMap::Request> request,
+                   std::shared_ptr<map_msgs::srv::SaveMap::Response> response);
 
-    void load_map_cb(std::shared_ptr<map_msgs::srv::SaveMap::Request> request,
-                     std::shared_ptr<map_msgs::srv::SaveMap::Response> response);
+  void load_map_cb(std::shared_ptr<map_msgs::srv::SaveMap::Request> request,
+                   std::shared_ptr<map_msgs::srv::SaveMap::Response> response);
 
-    void configure_params();
+  void configure_params();
 
 public:
-    explicit T260(const std::string& node_name = "t260_node", bool intra_process_comms = false);
+  explicit T260(const std::string &node_name = "t260_node", bool intra_process_comms = false);
 
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    on_configure(const rclcpp_lifecycle::State &) override;
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+  on_configure(const rclcpp_lifecycle::State &) override;
 
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    on_activate(const rclcpp_lifecycle::State &) override;
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+  on_activate(const rclcpp_lifecycle::State &) override;
 
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    on_deactivate(const rclcpp_lifecycle::State &) override;
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+  on_deactivate(const rclcpp_lifecycle::State &) override;
 
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    on_cleanup(const rclcpp_lifecycle::State &) override;
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+  on_cleanup(const rclcpp_lifecycle::State &) override;
 
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-    on_shutdown(const rclcpp_lifecycle::State & state) override;
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
+  on_shutdown(const rclcpp_lifecycle::State &state) override;
 
 };
 
