@@ -363,11 +363,11 @@ void T260::configure_params() {
   enable_map_preservation_ = this->declare_parameter("enable_map_preservation", false);
 
   publish_odom_ = this->declare_parameter("publish_odom", true);
-  publish_tf_ = this->declare_parameter("publish_tf", false);
+  publish_tf_ = this->declare_parameter("publish_tf", true);
 
   odom_frame_ = this->declare_parameter("odom_frame", "odom");
   base_frame_ = this->declare_parameter("base_frame", "base_link");
-  camera_frame_ = this->declare_parameter("camera_frame", "d430_link");
+  camera_frame_ = this->declare_parameter("camera_frame", "t260_link");
 
   pose_cov_ = this->declare_parameter("position_covariance", 0.1);
   rotation_cov_ = this->declare_parameter("rotation_covariance", 0.1);
