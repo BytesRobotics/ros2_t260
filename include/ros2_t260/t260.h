@@ -81,7 +81,7 @@ class T260: public rclcpp_lifecycle::LifecycleNode {
     bool enable_mapping_, enable_pose_jumping_, enable_relocalization_, enable_dynamic_calibration_,
     enable_map_preservation_;
     std::string serial_num_;
-    std::string odom_frame_, child_frame_, mounted_frame_;
+    std::string odom_frame_, base_frame_, camera_frame_;
     bool publish_odom_, publish_tf_;
     double pose_cov_, rotation_cov_;
     std::string calib_odom_file_; //https://github.com/IntelRealSense/librealsense/pull/3462
