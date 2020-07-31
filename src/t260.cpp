@@ -3,6 +3,7 @@
 //
 
 #include "t260.h"
+#include <fstream>
 
 /**
  * Helper functions for handling saving and loading maps from
