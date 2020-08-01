@@ -13,12 +13,12 @@ matrix:
         - ROS_DISTRO='foxy'
       os: linux
       arch: arm64
-    - name: "Foxy Fitzroy X86"
-      dist: focal
-      env:
-        - ROS_DISTRO='foxy'
-      os: linux
-      arch: amd64
+#    - name: "Foxy Fitzroy X86"
+#      dist: focal
+#      env:
+#        - ROS_DISTRO='foxy'
+#      os: linux
+#      arch: amd64
 
 env:
   global:
