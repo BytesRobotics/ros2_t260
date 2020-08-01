@@ -11,4 +11,4 @@ sudo apt install ros-${ROS_DISTRO}-ros-base
 source /opt/ros/$ROS_DISTRO/setup.bash
 sudo apt install -y python3-rosdep
 sudo rosdep init
-rosdep update
+sudo rosdep update
