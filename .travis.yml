@@ -7,12 +7,18 @@ language: generic
 
 matrix:
   include:
-    - name: "Foxy Fitzroy"
+    - name: "Foxy Fitzroy ARM"
       dist: focal
       env:
         - ROS_DISTRO='foxy'
       os: linux
       arch: arm64
+    - name: "Foxy Fitzroy X86"
+      dist: focal
+      env:
+        - ROS_DISTRO='foxy'
+      os: linux
+      arch: amd64
 
 env:
   global:
@@ -34,6 +40,7 @@ before_install:
   - source /opt/ros/$ROS_DISTRO/setup.bash
   # Install dependencies
   - cd $CI_SOURCE_PATH
+  - sudo apt install -y python-rosdep
   - sudo rosdep init
   - rosdep update
   - rosdep install
@@ -41,4 +48,6 @@ before_install:
 
 script:
   - colcon build
+  - colcon test
+  - colcon test-result --verbose
 

@@ -43,7 +43,7 @@ add_executable(t260_node
   src/t260.cpp)
 
 include_directories(t260_node
-  include/ros2_t260
+  include
   ${realsense2_INCLUDE_DIRS}
   )
 
