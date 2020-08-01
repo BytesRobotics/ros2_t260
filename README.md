@@ -10,13 +10,20 @@ ROS2 node for specialized for the T260 series realsense cameras. Key features of
 ## Build and Code Status
 
 #### Release
+[![Build Status](https://travis-ci.org/BytesRobotics/ros2_t260.svg?branch=release)](https://travis-ci.org/BytesRobotics/ros2_t260)
 [![CodeFactor](https://www.codefactor.io/repository/github/bytesrobotics/ros2_t260/badge/release)](https://www.codefactor.io/repository/github/bytesrobotics/ros2_t260/overview/release)
 
 #### Master
+[![Build Status](https://travis-ci.org/BytesRobotics/ros2_t260.svg?branch=master)](https://travis-ci.org/BytesRobotics/ros2_t260)
 [![CodeFactor](https://www.codefactor.io/repository/github/bytesrobotics/ros2_t260/badge/master)](https://www.codefactor.io/repository/github/bytesrobotics/ros2_t260/overview/master)
 
 #### Development
+[![Build Status](https://travis-ci.org/BytesRobotics/ros2_t260.svg?branch=development)](https://travis-ci.org/BytesRobotics/ros2_t260)
 [![CodeFactor](https://www.codefactor.io/repository/github/bytesrobotics/ros2_t260/badge/development)](https://www.codefactor.io/repository/github/bytesrobotics/ros2_t260/overview/development)
+
+## Topics
+
+## Services
 
 ## Parameters
 
@@ -39,3 +46,4 @@ ROS2 node for specialized for the T260 series realsense cameras. Key features of
 | position_covariance | 0.1 | Value for scaling the position covariance.
 | rotation_covariance | 0.1 | Value for scaling the rotational covariance.
 | calib_odom_file | "" | Absolute file path to a config file, such as the one in the config directory, that details the transformation and specification of the wheel odometry input.
+

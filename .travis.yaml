@@ -1,0 +1,44 @@
+sudo: required
+cache:
+  - apt
+  - pip
+
+language: generic
+
+matrix:
+  include:
+    - name: "Foxy Fitzroy"
+      dist: focal
+      env:
+        - ROS_DISTRO='foxy'
+      os: linux
+      arch: arm64
+
+env:
+  global:
+    - CI_SOURCE_PATH=$(pwd)
+
+before_install:
+  # Install the librealsense2 SDK
+  - sudo bash $CI_SOURCE_PATH/scripts/install-librealsense.sh
+  # Install ROS2
+  - sudo locale-gen en_US en_US.UTF-8
+  - sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+  - export LANG=en_US.UTF-8
+  - sudo apt update && sudo apt install curl gnupg2 lsb-release
+  - curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
+  - sudo sh -c 'echo "deb [arch=$(dpkg --print-architecture)] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/ros2-latest.list'
+  - sudo apt update
+  - sudo apt install ros-${ROS_DISTRO}-ros-base
+  # Source the ROS binary
+  - source /opt/ros/$ROS_DISTRO/setup.bash
+  # Install dependencies
+  - cd $CI_SOURCE_PATH
+  - sudo rosdep init
+  - rosdep update
+  - rosdep install
+  - rosdep install -y --from-paths .
+
+script:
+  - colcon build
+
