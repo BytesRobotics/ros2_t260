@@ -32,7 +32,8 @@ before_install:
   # Source the ROS binary
   - source /opt/ros/$ROS_DISTRO/setup.bash
   # Install dependencies
-  - cd ~/ws; rosdep install --from-paths src --ignore-src -r -y
+  - cd $CI_SOURCE_PATH
+  - rosdep install -y --from-paths .
 
 script:
   - sudo bash $CI_SOURCE_PATH/scripts/ci-build.sh
