@@ -9,6 +9,6 @@ sudo sh -c 'echo "deb [arch=$(dpkg --print-architecture)] http://packages.ros.or
 sudo apt update
 sudo apt install ros-${ROS_DISTRO}-ros-base
 source /opt/ros/$ROS_DISTRO/setup.bash
-sudo apt install -y python3-rosdep
+sudo apt install -y python3-rosdep python3-colcon-common-extensions
 sudo rosdep init
 sudo rosdep update
