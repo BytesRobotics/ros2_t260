@@ -7,7 +7,7 @@ ROS2 node for specialized for the T260 series realsense cameras. Key features of
 4. Wheel odometry input for improved VIO from T200 series camera
 5. Built on a lifecycle node for easier integration into larger projects and more control over camera state.
 
-For build, installation, and setup guidance please reference the `.travis.yaml` file in this repository.
+For build, installation, and setup guidance please reference the `.travis.yml` file in this repository.
 
 ## Build and Code Status
 
