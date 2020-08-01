@@ -24,8 +24,23 @@ For build, installation, and setup guidance please reference the `.travis.yml` f
 [![CodeFactor](https://www.codefactor.io/repository/github/bytesrobotics/ros2_t260/badge/development)](https://www.codefactor.io/repository/github/bytesrobotics/ros2_t260/overview/development)
 
 ## Topics
+### Published
+|Name|Message|QoS|Description|
+|---|---|---|---|
+| /odom | nav_msgs/msg/Odometry | Best Effort, Volatile | Odometry from realsense camera from odom frame to base frame.
+| /relocalization | geometry_msgs/msg/PoseStamped | Reliable, Transient Local | Topic on which relocalizaiton events are published from odom frame to base frame.
+
+### Subscribed
+|Name|Message|QoS|Description|
+|---|---|---|---|
+| /wheel/odom | nav_msgs/msg/Odometry | Best Effort, Volatile | Odometry input to realsense (requires calibration odom file to be set to have affect) typically provided by wheel odometry.
 
 ## Services
+|Name|Message|Description|
+|---|---|---|
+| load_map | map_msgs/srv/SaveMap | Service to load a map from the absolute file path in the SaveMap service message
+| save_map | map_msgs/srv/SaveMap | Service to save a map to the absolute file path in the SaveMap service message
+
 
 ## Parameters
 
