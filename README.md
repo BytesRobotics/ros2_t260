@@ -7,6 +7,8 @@ ROS2 node for specialized for the T260 series realsense cameras. Key features of
 4. Wheel odometry input for improved VIO from T200 series camera
 5. Built on a lifecycle node for easier integration into larger projects and more control over camera state.
 
+For build, installation, and setup guidance please reference the `.travis.yaml` file in this repository.
+
 ## Build and Code Status
 
 #### Release
@@ -47,3 +49,20 @@ ROS2 node for specialized for the T260 series realsense cameras. Key features of
 | rotation_covariance | 0.1 | Value for scaling the rotational covariance.
 | calib_odom_file | "" | Absolute file path to a config file, such as the one in the config directory, that details the transformation and specification of the wheel odometry input.
 
+## Troubleshooting
+1. Problem: The transitioning of the node into the configured state fails with the following output:
+    ```
+    [INFO] [1596037403.052517939] [t260_node]: Configuring T260 Node
+    [INFO] [1596037403.145169185] [t260_node]: T200 series device detected
+    Device Serial No: 905312110841
+    Device physical port: 2-1.1-9
+    Device FW version: 0.2.0.951
+    Device Product ID: 0x0B37
+    [INFO] [1596037403.145514918] [t260_node]: Connecting to device with serial number: 905312110841
+    [INFO] [1596037403.191280128] [t260_node]: Hardware reset
+    [INFO] [1596037403.191655134] [t260_node]: No calibration file provided, odom is disabled!
+    [ERROR] [1596037403.282707847] []: Caught exception in callback for transition 10
+    [ERROR] [1596037403.282893495] []: Original error: No device connected
+    [WARN] [1596037403.283088873] []: Error occurred while doing error handling.
+    ```
+    Solution: Set the hardware reset parameter to false before calling for the configuration of the node on your machine.
