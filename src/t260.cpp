@@ -165,7 +165,7 @@ T260::on_configure(const rclcpp_lifecycle::State &)
         }
         use_odom_in_ = true;
       } else {
-        RCLCPP_INFO(this->get_logger(), "No calibration file provided, odom is disabled!");
+        RCLCPP_INFO(this->get_logger(), "No calibration file provided, odom input is disabled!");
       }
       device_available = true;
     }
