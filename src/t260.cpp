@@ -283,88 +283,95 @@ void T260::main_cb(const rs2::frame & frame)
   std::lock_guard<std::mutex> lock(mutex_);
   auto now = this->now();
   if (auto fp = frame.as<rs2::pose_frame>()) {
-    auto pose_data = fp.get_pose_data();
+    if (tf_buffer_.canTransform(base_frame_, camera_frame_, tf2::TimePointZero)) {
+      auto pose_data = fp.get_pose_data();
 
-    double cov_pose(pose_cov_ * pow(10, 3 - static_cast<int>(pose_data.tracker_confidence)));
-    double cov_twist(rotation_cov_ * pow(10, 1 - static_cast<int>(pose_data.tracker_confidence)));
+      double cov_pose(pose_cov_ * pow(10, 3 - static_cast<int>(pose_data.tracker_confidence)));
+      double cov_twist(rotation_cov_ * pow(10, 1 - static_cast<int>(pose_data.tracker_confidence)));
 
-    geometry_msgs::msg::PoseStamped pose_msg;
-    pose_msg.header.stamp = now;
-    pose_msg.header.frame_id = odom_frame_;
+      geometry_msgs::msg::PoseStamped pose_msg;
+      pose_msg.header.stamp = now;
+      pose_msg.header.frame_id = odom_frame_;
 
-    tf2::Transform odom_to_camera;
-    rs2_pose_to_transform(pose_data, odom_to_camera);
+      tf2::Transform odom_to_camera;
+      rs2_pose_to_transform(pose_data, odom_to_camera);
 
-    tf2::Transform odom_to_base;
-    get_odom_to_base_tf(odom_to_camera, odom_to_base);
+      tf2::Transform odom_to_base;
+      get_odom_to_base_tf(odom_to_camera, odom_to_base);
 
-    geometry_msgs::msg::TransformStamped transform_msg;
-    transform_msg.transform.translation.x = odom_to_base.getOrigin().x();
-    transform_msg.transform.translation.y = odom_to_base.getOrigin().y();
-    transform_msg.transform.translation.z = odom_to_base.getOrigin().z();
-    transform_msg.transform.rotation.x = odom_to_base.getRotation().x();
-    transform_msg.transform.rotation.y = odom_to_base.getRotation().y();
-    transform_msg.transform.rotation.z = odom_to_base.getRotation().z();
-    transform_msg.transform.rotation.w = odom_to_base.getRotation().w();
-    transform_msg.header.stamp = now;
-    transform_msg.header.frame_id = odom_frame_;
-    transform_msg.child_frame_id = base_frame_;
-    if (publish_tf_) {
-      tf_broadcaster_.sendTransform(transform_msg);
-    }
+      geometry_msgs::msg::TransformStamped transform_msg;
+      transform_msg.transform.translation.x = odom_to_base.getOrigin().x();
+      transform_msg.transform.translation.y = odom_to_base.getOrigin().y();
+      transform_msg.transform.translation.z = odom_to_base.getOrigin().z();
+      transform_msg.transform.rotation.x = odom_to_base.getRotation().x();
+      transform_msg.transform.rotation.y = odom_to_base.getRotation().y();
+      transform_msg.transform.rotation.z = odom_to_base.getRotation().z();
+      transform_msg.transform.rotation.w = odom_to_base.getRotation().w();
+      transform_msg.header.stamp = now;
+      transform_msg.header.frame_id = odom_frame_;
+      transform_msg.child_frame_id = base_frame_;
+      if (publish_tf_) {
+        tf_broadcaster_.sendTransform(transform_msg);
+      }
 
-    if (publish_odom_) {
-      geometry_msgs::msg::Vector3Stamped v_msg;
-      v_msg.vector.x = -pose_data.velocity.z;
-      v_msg.vector.y = -pose_data.velocity.x;
-      v_msg.vector.z = pose_data.velocity.y;
-      tf2::Vector3 tfv;
-      tfv.setX(v_msg.vector.x);
-      tfv.setY(v_msg.vector.y);
-      tfv.setZ(v_msg.vector.z);
-      tf2::Quaternion q(-transform_msg.transform.rotation.x, -transform_msg.transform.rotation.y,
-        -transform_msg.transform.rotation.z, transform_msg.transform.rotation.w);
-      tfv = tf2::quatRotate(q, tfv);
-      v_msg.vector.x = tfv.getX();
-      v_msg.vector.y = tfv.getY();
-      v_msg.vector.z = tfv.getZ();
+      if (publish_odom_) {
+        geometry_msgs::msg::Vector3Stamped v_msg;
+        v_msg.vector.x = -pose_data.velocity.z;
+        v_msg.vector.y = -pose_data.velocity.x;
+        v_msg.vector.z = pose_data.velocity.y;
+        tf2::Vector3 tfv;
+        tfv.setX(v_msg.vector.x);
+        tfv.setY(v_msg.vector.y);
+        tfv.setZ(v_msg.vector.z);
+        tf2::Quaternion q(-transform_msg.transform.rotation.x, -transform_msg.transform.rotation.y,
+          -transform_msg.transform.rotation.z, transform_msg.transform.rotation.w);
+        tfv = tf2::quatRotate(q, tfv);
+        v_msg.vector.x = tfv.getX();
+        v_msg.vector.y = tfv.getY();
+        v_msg.vector.z = tfv.getZ();
 
-      geometry_msgs::msg::Vector3Stamped om_msg;
-      om_msg.vector.x = -pose_data.angular_velocity.z;
-      om_msg.vector.y = -pose_data.angular_velocity.x;
-      om_msg.vector.z = pose_data.angular_velocity.y;
-      tfv.setX(om_msg.vector.x);
-      tfv.setY(om_msg.vector.y);
-      tfv.setZ(om_msg.vector.z);
-      tfv = tf2::quatRotate(q, tfv);
-      om_msg.vector.x = tfv.getX();
-      om_msg.vector.y = tfv.getY();
-      om_msg.vector.z = tfv.getZ();
+        geometry_msgs::msg::Vector3Stamped om_msg;
+        om_msg.vector.x = -pose_data.angular_velocity.z;
+        om_msg.vector.y = -pose_data.angular_velocity.x;
+        om_msg.vector.z = pose_data.angular_velocity.y;
+        tfv.setX(om_msg.vector.x);
+        tfv.setY(om_msg.vector.y);
+        tfv.setZ(om_msg.vector.z);
+        tfv = tf2::quatRotate(q, tfv);
+        om_msg.vector.x = tfv.getX();
+        om_msg.vector.y = tfv.getY();
+        om_msg.vector.z = tfv.getZ();
 
-      nav_msgs::msg::Odometry odom_msg;
-      odom_msg.header.stamp = now;
-      odom_msg.header.frame_id = odom_frame_;
-      odom_msg.child_frame_id = base_frame_;
-      odom_msg.pose.pose = pose_msg.pose;
-      odom_msg.pose.covariance = {
-        cov_pose, 0, 0, 0, 0, 0,
-        0, cov_pose, 0, 0, 0, 0,
-        0, 0, cov_pose, 0, 0, 0,
-        0, 0, 0, cov_twist, 0, 0,
-        0, 0, 0, 0, cov_twist, 0,
-        0, 0, 0, 0, 0, cov_twist
-      };
-      odom_msg.twist.twist.linear = v_msg.vector;
-      odom_msg.twist.twist.angular = om_msg.vector;
-      odom_msg.twist.covariance = {
-        cov_pose, 0, 0, 0, 0, 0,
-        0, cov_pose, 0, 0, 0, 0,
-        0, 0, cov_pose, 0, 0, 0,
-        0, 0, 0, cov_twist, 0, 0,
-        0, 0, 0, 0, cov_twist, 0,
-        0, 0, 0, 0, 0, cov_twist
-      };
-      odom_pub_->publish(odom_msg);
+        nav_msgs::msg::Odometry odom_msg;
+        odom_msg.header.stamp = now;
+        odom_msg.header.frame_id = odom_frame_;
+        odom_msg.child_frame_id = base_frame_;
+        odom_msg.pose.pose = pose_msg.pose;
+        odom_msg.pose.covariance = {
+          cov_pose, 0, 0, 0, 0, 0,
+          0, cov_pose, 0, 0, 0, 0,
+          0, 0, cov_pose, 0, 0, 0,
+          0, 0, 0, cov_twist, 0, 0,
+          0, 0, 0, 0, cov_twist, 0,
+          0, 0, 0, 0, 0, cov_twist
+        };
+        odom_msg.twist.twist.linear = v_msg.vector;
+        odom_msg.twist.twist.angular = om_msg.vector;
+        odom_msg.twist.covariance = {
+          cov_pose, 0, 0, 0, 0, 0,
+          0, cov_pose, 0, 0, 0, 0,
+          0, 0, cov_pose, 0, 0, 0,
+          0, 0, 0, cov_twist, 0, 0,
+          0, 0, 0, 0, cov_twist, 0,
+          0, 0, 0, 0, 0, cov_twist
+        };
+        odom_pub_->publish(odom_msg);
+      }
+    } else {
+      RCLCPP_ERROR(
+        this->get_logger(), "Unable to get transform between %s and %s.",
+        odom_frame_.c_str(),
+        camera_frame_.c_str());
     }
   } else if (auto fs = frame.as<rs2::frameset>()) {
 //            cv::Mat right(cv::Size(fs.get_fisheye_frame(1).get_width(),
@@ -389,7 +396,7 @@ void T260::notifications_cb(const rs2::notification & n)
     if (tm_sensor_->get_static_node(
         virtual_object_guid_, pose_transform.translation, pose_transform.rotation))
     {
-      while (!tf_buffer_.canTransform(odom_frame_, camera_frame_, tf2::TimePointZero)) {
+      while (!tf_buffer_.canTransform(base_frame_, camera_frame_, tf2::TimePointZero)) {
         RCLCPP_ERROR(
           this->get_logger(), "Unable to get transform between %s and %s.",
           odom_frame_.c_str(),
