@@ -289,10 +289,6 @@ void T260::main_cb(const rs2::frame & frame)
       double cov_pose(pose_cov_ * pow(10, 3 - static_cast<int>(pose_data.tracker_confidence)));
       double cov_twist(rotation_cov_ * pow(10, 1 - static_cast<int>(pose_data.tracker_confidence)));
 
-      geometry_msgs::msg::PoseStamped pose_msg;
-      pose_msg.header.stamp = now;
-      pose_msg.header.frame_id = odom_frame_;
-
       tf2::Transform odom_to_camera;
       rs2_pose_to_transform(pose_data, odom_to_camera);
 
@@ -346,7 +342,7 @@ void T260::main_cb(const rs2::frame & frame)
         odom_msg.header.stamp = now;
         odom_msg.header.frame_id = odom_frame_;
         odom_msg.child_frame_id = base_frame_;
-        odom_msg.pose.pose = pose_msg.pose;
+        tf2::toMsg(odom_to_base, odom_msg.pose.pose);
         odom_msg.pose.covariance = {
           cov_pose, 0, 0, 0, 0, 0,
           0, cov_pose, 0, 0, 0, 0,
