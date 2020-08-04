@@ -41,9 +41,7 @@ For build, installation, and setup guidance please reference the `.travis.yml` f
 | load_map | map_msgs/srv/SaveMap | Service to load a map from the absolute file path in the SaveMap service message
 | save_map | map_msgs/srv/SaveMap | Service to save a map to the absolute file path in the SaveMap service message
 
-
 ## Parameters
-
 |Name|Default|Description|
 |---|---|---|
 |hardware_reset | true | Whether or not to perform a hardware reset when configuring the sensor|
@@ -63,6 +61,15 @@ For build, installation, and setup guidance please reference the `.travis.yml` f
 | position_covariance | 0.1 | Value for scaling the position covariance.
 | rotation_covariance | 0.1 | Value for scaling the rotational covariance.
 | calib_odom_file | "" | Absolute file path to a config file, such as the one in the config directory, that details the transformation and specification of the wheel odometry input.
+
+## Nodes
+*  `lifecycle_client` : Helper node for managing the lifecycle of the `t260_node`. This node allows for easily autostarting 
+the `t260_node` using the `autostart` parameter.
+*  `t260_node` : Main node for running T260 and T200 series cameras.
+
+## Launch Files
+*  `t260.launch.py` : Launches both the `lifecycle_client` and `t260_node` which puts the `t260_node` into 
+an activate state immediately after launch.
 
 ## Troubleshooting
 1. Problem: The transitioning of the node into the configured state fails with the following output:

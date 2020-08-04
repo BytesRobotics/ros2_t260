@@ -29,6 +29,7 @@ find_package(OpenCV 4 REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(map_msgs REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 
 find_package(realsense2)
 if(NOT realsense2_FOUND)
@@ -43,6 +44,7 @@ add_executable(t260_node
   src/t260_node.cpp
   src/t260.cpp
 )
+
 
 include_directories(t260_node
   include
@@ -65,10 +67,23 @@ ament_target_dependencies(t260_node
   map_msgs
 )
 
+add_executable(lifecycle_client
+  src/lifecycle_client.cpp
+)
 
-install(TARGETS t260_node
+ament_target_dependencies(lifecycle_client
+  rclcpp
+  lifecycle_msgs
+)
+
+install(TARGETS t260_node lifecycle_client
   EXPORT export_${PROJECT_NAME}
-  DESTINATION lib/${PROJECT_NAME})
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}/
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
