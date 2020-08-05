@@ -1,9 +1,29 @@
-//
-// Created by michael on 7/16/20.
-//
+/*
+MIT License
 
-#ifndef ROS2_T260_T260_H
-#define ROS2_T260_T260_H
+Copyright (c) 2020 Bytes Robotics
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
+#ifndef ROS2_T260__T260_HPP_
+#define ROS2_T260__T260_HPP_
 
 #include <librealsense2/rs.hpp>
 #include <iostream>
@@ -12,8 +32,11 @@
 #include <chrono>
 #include <mutex>
 #include <thread>
-#include <opencv2/core/core.hpp>
-#include <opencv2/opencv.hpp>
+#include <string>
+#include <memory>
+
+#include "opencv2/core/core.hpp"
+#include "opencv2/opencv.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "lifecycle_msgs/msg/transition.hpp"
@@ -28,7 +51,6 @@
 #include "tf2/convert.h"
 #include "tf2/utils.h"
 #include "tf2/LinearMath/Quaternion.h"
-#include "tf2/convert.h"
 
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
@@ -41,13 +63,12 @@
 
 #include "map_msgs/srv/save_map.hpp"
 
-// ros2 param set /t260_node calib_odom_file "/home/michael/Github/br_core/ws/src/deps/ros2_t260/config/calibration_odometry.json"
-class T260 : public rclcpp_lifecycle::LifecycleNode {
-
+class T260 : public rclcpp_lifecycle::LifecycleNode
+{
   const std::string virtual_object_guid_ = "node0";
 
   std::mutex mutex_;
-  rs2::context ctx_; // Create librealsense context for managing devices
+  rs2::context ctx_;  // Create librealsense context for managing devices
   rs2::pipeline pipe_;
   rs2::config cfg_;
   std::shared_ptr<rs2::pose_sensor> tm_sensor_;
@@ -60,7 +81,8 @@ class T260 : public rclcpp_lifecycle::LifecycleNode {
 
   /// Publishers
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>> odom_pub_;
-  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>> relocalization_pub_;
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher
+    <geometry_msgs::msg::PoseStamped>> relocalization_pub_;
 
   // See (https://answers.ros.org/question/312870/ros2-node-pointer-from-a-lifecyclenode/) for issue
   // image_transport::ImageTransport left_it_, right_it_;
@@ -84,28 +106,30 @@ class T260 : public rclcpp_lifecycle::LifecycleNode {
   std::string odom_frame_, base_frame_, camera_frame_;
   bool publish_odom_, publish_tf_;
   double pose_cov_, rotation_cov_;
-  std::string calib_odom_file_; //https://github.com/IntelRealSense/librealsense/pull/3462
+  std::string calib_odom_file_;  // https://github.com/IntelRealSense/librealsense/pull/3462
 
-  void notifications_cb(const rs2::notification &n);
+  void notifications_cb(const rs2::notification & n);
 
   void odom_in_cb(const nav_msgs::msg::Odometry::SharedPtr msg);
 
-  void main_cb(const rs2::frame &frame);
+  void main_cb(const rs2::frame & frame);
 
-  void save_map_cb(std::shared_ptr<map_msgs::srv::SaveMap::Request> request,
-                   std::shared_ptr<map_msgs::srv::SaveMap::Response> response);
+  void save_map_cb(
+    std::shared_ptr<map_msgs::srv::SaveMap::Request> request,
+    std::shared_ptr<map_msgs::srv::SaveMap::Response> response);
 
-  void load_map_cb(std::shared_ptr<map_msgs::srv::SaveMap::Request> request,
-                   std::shared_ptr<map_msgs::srv::SaveMap::Response> response);
+  void load_map_cb(
+    std::shared_ptr<map_msgs::srv::SaveMap::Request> request,
+    std::shared_ptr<map_msgs::srv::SaveMap::Response> response);
 
   void configure_params();
 
-  inline void rs2_pose_to_transform(rs2_pose& rs2_pose, tf2::Transform& transform);
+  inline void rs2_pose_to_transform(rs2_pose & rs2_pose, tf2::Transform & transform);
 
-  inline void get_odom_to_base_tf(tf2::Transform& odom_to_camera, tf2::Transform& odom_to_base);
+  inline void get_odom_to_base_tf(tf2::Transform & odom_to_camera, tf2::Transform & odom_to_base);
 
 public:
-  explicit T260(const std::string &node_name = "t260_node", bool intra_process_comms = false);
+  explicit T260(const std::string & node_name = "t260_node", bool intra_process_comms = false);
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_configure(const rclcpp_lifecycle::State &) override;
@@ -120,8 +144,7 @@ public:
   on_cleanup(const rclcpp_lifecycle::State &) override;
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-  on_shutdown(const rclcpp_lifecycle::State &state) override;
-
+  on_shutdown(const rclcpp_lifecycle::State & state) override;
 };
 
-#endif //ROS2_T260_ROS_T260_H
+#endif  // ROS2_T260__T260_HPP_

@@ -1,0 +1,40 @@
+sudo: required
+cache:
+  - apt
+  - pip
+
+language: generic
+
+matrix:
+  include:
+    - name: "Foxy Fitzroy ARM"
+      dist: focal
+      env:
+        - ROS_DISTRO='foxy'
+      os: linux
+      arch: arm64
+#    - name: "Foxy Fitzroy X86"
+#      dist: focal
+#      env:
+#        - ROS_DISTRO='foxy'
+#      os: linux
+#      arch: amd64
+
+env:
+  global:
+    - CI_SOURCE_PATH=$(pwd)
+
+before_install:
+  # Install the librealsense2 SDK
+  - sudo bash $CI_SOURCE_PATH/scripts/install-librealsense.sh
+  # Install ROS2
+  - sudo bash $CI_SOURCE_PATH/scripts/ci-ros2-install.sh
+  # Source the ROS binary
+  - source /opt/ros/$ROS_DISTRO/setup.bash
+  # Install dependencies
+  - cd $CI_SOURCE_PATH
+  - sudo rosdep install -y -r --from-paths . || true
+
+script:
+  - sudo bash $CI_SOURCE_PATH/scripts/ci-build.sh
+  - sudo bash $CI_SOURCE_PATH/scripts/ci-test.sh
