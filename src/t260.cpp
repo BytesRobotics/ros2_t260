@@ -27,6 +27,7 @@ SOFTWARE.
 #include <memory>
 
 #include "ros2_t260/t260.hpp"
+#include <fstream>
 
 /**
  * Helper functions for handling saving and loading maps from
