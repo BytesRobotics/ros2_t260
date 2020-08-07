@@ -17,6 +17,12 @@ def generate_launch_description():
         default_value='odom',
         description='Odom frame')
 
+    odom_topic = LaunchConfiguration('odom_topic', default='/odom')
+    odom_topic_cmd = DeclareLaunchArgument(
+        'odom_topic',
+        default_value='/odom',
+        description='Odom topic')
+
     base_frame = LaunchConfiguration('base_frame', default='t260_link')
     base_frame_cmd = DeclareLaunchArgument(
         'base_frame',
@@ -45,6 +51,7 @@ def generate_launch_description():
         package='ros2_t260',
         executable='t260_node',
         name='t260_node',
+        remappings=[('/odom', odom_topic)],
         parameters=[{'hardware_reset': harwdare_reset, "odom_frame": odom_frame,
                      "base_frame": base_frame, "camera_frame": camera_frame,
                      "calib_odom_file": calib_odom_file, "publish_tf": publish_tf}])
@@ -60,6 +67,7 @@ def generate_launch_description():
     # Declare the launch options
     ld.add_action(hardware_reset_cmd)
     ld.add_action(odom_frame_cmd)
+    ld.add_action(odom_topic_cmd)
     ld.add_action(base_frame_cmd)
     ld.add_action(camera_frame_cmd)
     ld.add_action(calib_odom_file_cmd)
