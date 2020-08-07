@@ -1,8 +1,6 @@
 /*
 MIT License
 
-
-=======
 Copyright (c) 2020 Bytes Robotics
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
