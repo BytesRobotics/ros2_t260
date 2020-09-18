@@ -73,6 +73,7 @@ class T260 : public rclcpp_lifecycle::LifecycleNode
   rs2::config cfg_;
   std::shared_ptr<rs2::pose_sensor> tm_sensor_;
   rs2::pipeline_profile pipe_profile_;
+  rs2::device device_;
   std::shared_ptr<rs2::wheel_odometer> wheel_odometer_;
 
   tf2::BufferCore tf_buffer_;
@@ -107,6 +108,8 @@ class T260 : public rclcpp_lifecycle::LifecycleNode
   bool publish_odom_, publish_tf_;
   double pose_cov_, rotation_cov_;
   std::string calib_odom_file_;  // https://github.com/IntelRealSense/librealsense/pull/3462
+
+  void initialize_odometry_input();
 
   void notifications_cb(const rs2::notification & n);
 

@@ -92,6 +92,7 @@ rs2_pose identity_pose()
 T260::T260(const std::string & node_name, bool intra_process_comms)
 : rclcpp_lifecycle::LifecycleNode(node_name, rclcpp::NodeOptions().use_intra_process_comms(
       intra_process_comms)),
+  device_(rs2::device()),
   transform_listener_(tf_buffer_),
   tf_broadcaster_(this)
 {
@@ -139,12 +140,12 @@ T260::on_configure(const rclcpp_lifecycle::State &)
       std::strcmp(serial_num_.c_str(), "") == 0)
     {
       RCLCPP_INFO(this->get_logger(), "Connecting to device with serial number: %s", serial_num);
+      device_ = dev;
       serial_num_ = serial_num;
       if (hardware_reset_) {
         dev.hardware_reset();
         RCLCPP_INFO(this->get_logger(), "Hardware reset");
       }
-      wheel_odometer_ = std::make_shared<rs2::wheel_odometer>(dev.first<rs2::wheel_odometer>());
       device_available = true;
     }
   }
@@ -173,34 +174,38 @@ T260::on_configure(const rclcpp_lifecycle::State &)
     tm_sensor_->set_option(RS2_OPTION_ENABLE_DYNAMIC_CALIBRATION, enable_dynamic_calibration_);
     tm_sensor_->set_option(RS2_OPTION_ENABLE_MAP_PRESERVATION, enable_map_preservation_);
 
-    /// Setup wheel odom input if calibration file is provided
     if (!calib_odom_file_.empty()) {
-      std::ifstream calibrationFile(calib_odom_file_);
-      if (!calibrationFile) {
-        RCLCPP_FATAL_STREAM(
-          this->get_logger(),
-          "calibration_odometry file not found. calib_odom_file = " <<
-            calib_odom_file_);
-        throw std::runtime_error("calibration_odometry file not found");
-      }
-      const std::string json_str((std::istreambuf_iterator<char>(calibrationFile)),
-        std::istreambuf_iterator<char>());
-      const std::vector<uint8_t> wo_calib(json_str.begin(), json_str.end());
-
-      if (!wheel_odometer_->load_wheel_odometery_config(wo_calib)) {
-        RCLCPP_FATAL_STREAM(
-          this->get_logger(),
-          "Format error in calibration_odometry file: " << calib_odom_file_);
-        throw std::runtime_error("Format error in calibration_odometry file");
-      }
-      use_odom_in_ = true;
+        T260::initialize_odometry_input();
     } else {
-      RCLCPP_INFO(this->get_logger(), "No calibration file provided, odom input is disabled!");
+        RCLCPP_INFO(this->get_logger(), "No calibration file provided, odom input is disabled!");
     }
-
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
   }
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::FAILURE;
+}
+
+void T260::initialize_odometry_input(){
+    /// Setup wheel odom input if calibration file is provided
+    wheel_odometer_ = std::make_shared<rs2::wheel_odometer>(device_.first<rs2::wheel_odometer>());
+    std::ifstream calibrationFile(calib_odom_file_);
+    if (!calibrationFile) {
+        RCLCPP_FATAL_STREAM(
+                this->get_logger(),
+                "calibration_odometry file not found. calib_odom_file = " <<
+                                                                          calib_odom_file_);
+        throw std::runtime_error("calibration_odometry file not found");
+    }
+    const std::string json_str((std::istreambuf_iterator<char>(calibrationFile)),
+                               std::istreambuf_iterator<char>());
+    const std::vector<uint8_t> wo_calib(json_str.begin(), json_str.end());
+
+    if (!wheel_odometer_->load_wheel_odometery_config(wo_calib)) {
+        RCLCPP_FATAL_STREAM(
+                this->get_logger(),
+                "Format error in calibration_odometry file: " << calib_odom_file_);
+        throw std::runtime_error("Format error in calibration_odometry file");
+    }
+    use_odom_in_ = true;
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
