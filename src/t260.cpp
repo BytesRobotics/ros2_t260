@@ -25,9 +25,9 @@ SOFTWARE.
 #include <string>
 #include <vector>
 #include <memory>
+#include <fstream>
 
 #include "ros2_t260/t260.hpp"
-#include <fstream>
 
 /**
  * Helper functions for handling saving and loading maps from
@@ -92,7 +92,7 @@ rs2_pose identity_pose()
 T260::T260(const std::string & node_name, bool intra_process_comms)
 : rclcpp_lifecycle::LifecycleNode(node_name, rclcpp::NodeOptions().use_intra_process_comms(
       intra_process_comms)),
-  device_(rs2::device()),
+  pipe_(ctx_),
   transform_listener_(tf_buffer_),
   tf_broadcaster_(this)
 {
@@ -122,36 +122,14 @@ T260::on_configure(const rclcpp_lifecycle::State &)
     std::string(this->get_name()) + "/load_map",
     std::bind(&T260::load_map_cb, this, std::placeholders::_1, std::placeholders::_2));
 
-  std::vector<std::string> serials;
-  bool device_available{false};
-  for (auto && dev : ctx_.query_devices(RS2_PRODUCT_LINE_T200)) {
-    auto serial_num = dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER);
-
-    std::stringstream ss;
-    ss << "T200 series device detected" <<
-      "\nDevice Serial No: " << serial_num <<
-      "\nDevice physical port: " << dev.get_info(RS2_CAMERA_INFO_PHYSICAL_PORT) <<
-      "\nDevice FW version: " << dev.get_info(RS2_CAMERA_INFO_FIRMWARE_VERSION) <<
-      "\nDevice Product ID: 0x%s" << dev.get_info(RS2_CAMERA_INFO_PRODUCT_ID);
-    RCLCPP_INFO(this->get_logger(), ss.str());
-
-    // Discover device
-    if (std::strcmp(serial_num_.c_str(), serial_num) == 0 ||
-      std::strcmp(serial_num_.c_str(), "") == 0)
-    {
-      RCLCPP_INFO(this->get_logger(), "Connecting to device with serial number: %s", serial_num);
-      device_ = dev;
-      serial_num_ = serial_num;
-      if (hardware_reset_) {
-        dev.hardware_reset();
-        RCLCPP_INFO(this->get_logger(), "Hardware reset");
-      }
-      device_available = true;
-    }
-  }
-
-  if (device_available) {
+  auto serial_num = get_device(ctx_.query_devices(RS2_PRODUCT_LINE_T200));
+  if (!serial_num.empty()) {
     cfg_.enable_device(serial_num_);
+
+    if (hardware_reset_) {
+      cfg_.resolve(pipe_).get_device().hardware_reset();
+      RCLCPP_INFO(this->get_logger(), "Hardware reset");
+    }
 
     if (enable_fisheye_streams_) {
       cfg_.enable_stream(RS2_STREAM_FISHEYE, 1, RS2_FORMAT_Y8);
@@ -166,46 +144,90 @@ T260::on_configure(const rclcpp_lifecycle::State &)
       enable_pose_jumping_ = false;
       enable_relocalization_ = false;
     }
-    tm_sensor_ = std::make_shared<rs2::pose_sensor>(
-      cfg_.resolve(pipe_).get_device().first<rs2::pose_sensor>());
-    tm_sensor_->set_option(RS2_OPTION_ENABLE_MAPPING, enable_mapping_);
-    tm_sensor_->set_option(RS2_OPTION_ENABLE_POSE_JUMPING, enable_pose_jumping_);
-    tm_sensor_->set_option(RS2_OPTION_ENABLE_RELOCALIZATION, enable_relocalization_);
-    tm_sensor_->set_option(RS2_OPTION_ENABLE_DYNAMIC_CALIBRATION, enable_dynamic_calibration_);
-    tm_sensor_->set_option(RS2_OPTION_ENABLE_MAP_PRESERVATION, enable_map_preservation_);
+
+    cfg_.resolve(pipe_).get_device().first<rs2::pose_sensor>().set_option(
+      RS2_OPTION_ENABLE_MAPPING,
+      enable_mapping_);
+    cfg_.resolve(pipe_).get_device().first<rs2::pose_sensor>().set_option(
+      RS2_OPTION_ENABLE_POSE_JUMPING, enable_pose_jumping_);
+    cfg_.resolve(pipe_).get_device().first<rs2::pose_sensor>().set_option(
+      RS2_OPTION_ENABLE_RELOCALIZATION, enable_relocalization_);
+    cfg_.resolve(pipe_).get_device().first<rs2::pose_sensor>().set_option(
+      RS2_OPTION_ENABLE_DYNAMIC_CALIBRATION, enable_dynamic_calibration_);
+    cfg_.resolve(pipe_).get_device().first<rs2::pose_sensor>().set_option(
+      RS2_OPTION_ENABLE_MAP_PRESERVATION, enable_map_preservation_);
 
     if (!calib_odom_file_.empty()) {
-        T260::initialize_odometry_input();
+      T260::initialize_odometry_input();
     } else {
-        RCLCPP_INFO(this->get_logger(), "No calibration file provided, odom input is disabled!");
+      RCLCPP_INFO(this->get_logger(), "No calibration file provided, odom input is disabled!");
     }
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
   }
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::FAILURE;
 }
 
-void T260::initialize_odometry_input(){
-    /// Setup wheel odom input if calibration file is provided
-    wheel_odometer_ = std::make_shared<rs2::wheel_odometer>(device_.first<rs2::wheel_odometer>());
-    std::ifstream calibrationFile(calib_odom_file_);
-    if (!calibrationFile) {
-        RCLCPP_FATAL_STREAM(
-                this->get_logger(),
-                "calibration_odometry file not found. calib_odom_file = " <<
-                                                                          calib_odom_file_);
-        throw std::runtime_error("calibration_odometry file not found");
+std::string T260::get_device(const rs2::device_list & devices)
+{
+  std::vector<std::string> serials;
+  RCLCPP_INFO(this->get_logger(), "%d T200 device(s) found", devices.size());
+  for (int i = 0; i < static_cast<int>(devices.size()); i++) {
+    rs2::device dev;
+    try {
+      dev = devices[i];
+    } catch (const std::exception & ex) {
+      RCLCPP_WARN_STREAM(
+        this->get_logger(),
+        "Device " << i + 1 << "/" << devices.size() << " failed with exception: " << ex.what());
+      continue;
     }
-    const std::string json_str((std::istreambuf_iterator<char>(calibrationFile)),
-                               std::istreambuf_iterator<char>());
-    const std::vector<uint8_t> wo_calib(json_str.begin(), json_str.end());
+    std::string serial_num = dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER);
 
-    if (!wheel_odometer_->load_wheel_odometery_config(wo_calib)) {
-        RCLCPP_FATAL_STREAM(
-                this->get_logger(),
-                "Format error in calibration_odometry file: " << calib_odom_file_);
-        throw std::runtime_error("Format error in calibration_odometry file");
+    std::stringstream ss;
+    ss << "T200 series device detected" <<
+      "\nDevice Serial No: " << serial_num <<
+      "\nDevice physical port: " << dev.get_info(RS2_CAMERA_INFO_PHYSICAL_PORT) <<
+      "\nDevice FW version: " << dev.get_info(RS2_CAMERA_INFO_FIRMWARE_VERSION) <<
+      "\nDevice Product ID: 0x%s" << dev.get_info(RS2_CAMERA_INFO_PRODUCT_ID);
+    RCLCPP_INFO(this->get_logger(), ss.str());
+
+    // Discover device
+    if (std::strcmp(serial_num_.c_str(), serial_num.c_str()) == 0 ||
+      std::strcmp(serial_num_.c_str(), "") == 0)
+    {
+      RCLCPP_INFO(
+        this->get_logger(), "Connecting to device with serial number: %s", serial_num.c_str());
+      return serial_num;
     }
-    use_odom_in_ = true;
+  }
+  RCLCPP_ERROR(this->get_logger(), "No device with the matching specification found!");
+  return std::string("");
+}
+
+void T260::initialize_odometry_input()
+{
+  /// Setup wheel odom input if calibration file is provided
+  std::ifstream calibrationFile(calib_odom_file_);
+  if (!calibrationFile) {
+    RCLCPP_FATAL_STREAM(
+      this->get_logger(),
+      "calibration_odometry file not found. calib_odom_file = " <<
+        calib_odom_file_);
+    throw std::runtime_error("calibration_odometry file not found");
+  }
+  const std::string json_str((std::istreambuf_iterator<char>(calibrationFile)),
+    std::istreambuf_iterator<char>());
+  const std::vector<uint8_t> wo_calib(json_str.begin(), json_str.end());
+
+  if (!cfg_.resolve(pipe_).get_device().first<rs2::wheel_odometer>().load_wheel_odometery_config(
+      wo_calib))
+  {
+    RCLCPP_FATAL_STREAM(
+      this->get_logger(),
+      "Format error in calibration_odometry file: " << calib_odom_file_);
+    throw std::runtime_error("Format error in calibration_odometry file");
+  }
+  use_odom_in_ = true;
 }
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
@@ -213,9 +235,9 @@ T260::on_activate(const rclcpp_lifecycle::State &)
 {
   odom_pub_->on_activate();
   relocalization_pub_->on_activate();
-  tm_sensor_->set_notifications_callback(
+  cfg_.resolve(pipe_).get_device().first<rs2::pose_sensor>().set_notifications_callback(
     std::bind(&T260::notifications_cb, this, std::placeholders::_1));
-  pipe_profile_ = pipe_.start(cfg_, std::bind(&T260::main_cb, this, std::placeholders::_1));
+  pipe_.start(cfg_, std::bind(&T260::main_cb, this, std::placeholders::_1));
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
@@ -236,9 +258,7 @@ T260::on_cleanup(const rclcpp_lifecycle::State &)
   odom_pub_.reset();
   save_map_srv_.reset();
   load_map_srv_.reset();
-  tm_sensor_.reset();
   relocalization_pub_.reset();
-  wheel_odometer_.reset();
   odom_in_sub_.reset();
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -256,10 +276,15 @@ void T260::save_map_cb(
   RCLCPP_INFO(this->get_logger(), "Saving map to: %s", request->filename.data.c_str());
   /// Set static node for relocalizing on the map when reloaded
   rs2_pose pose = identity_pose();
-  tm_sensor_->set_static_node(virtual_object_guid_, pose.translation, pose.rotation);
+  cfg_.resolve(pipe_).get_device().first<rs2::pose_sensor>().set_static_node(
+    virtual_object_guid_,
+    pose.translation,
+    pose.rotation);
   /// Export map to a raw file
   auto out_map_filepath = request->filename.data.data();
-  raw_file_from_bytes(out_map_filepath, tm_sensor_->export_localization_map());
+  raw_file_from_bytes(
+    out_map_filepath, cfg_.resolve(
+      pipe_).get_device().first<rs2::pose_sensor>().export_localization_map());
 }
 
 void T260::odom_in_cb(const nav_msgs::msg::Odometry::SharedPtr msg)
@@ -271,7 +296,9 @@ void T260::odom_in_cb(const nav_msgs::msg::Odometry::SharedPtr msg)
     RCLCPP_DEBUG_STREAM(
       this->get_logger(), "Add odom: " << velocity.x << ", " <<
         velocity.y << ", " << velocity.z);
-    wheel_odometer_->send_wheel_odometry(0, 0, velocity);
+    cfg_.resolve(pipe_).get_device().first<rs2::wheel_odometer>().send_wheel_odometry(
+      0, 0,
+      velocity);
   }
 }
 
@@ -282,8 +309,9 @@ void T260::load_map_cb(
 {
   RCLCPP_INFO(this->get_logger(), "Loading map from: %s", request->filename.data.c_str());
   pipe_.stop();
-  tm_sensor_->import_localization_map(bytes_from_raw_file(request->filename.data));
-  pipe_profile_ = pipe_.start(cfg_, std::bind(&T260::main_cb, this, std::placeholders::_1));
+  cfg_.resolve(pipe_).get_device().first<rs2::pose_sensor>().import_localization_map(
+    bytes_from_raw_file(
+      request->filename.data));
 }
 
 void T260::main_cb(const rs2::frame & frame)
@@ -397,7 +425,7 @@ void T260::notifications_cb(const rs2::notification & n)
     RCLCPP_INFO(this->get_logger(), "Relocalization event detected");
     rs2_pose pose_transform;
     // Get static node if available
-    if (tm_sensor_->get_static_node(
+    if (cfg_.resolve(pipe_).get_device().first<rs2::pose_sensor>().get_static_node(
         virtual_object_guid_, pose_transform.translation, pose_transform.rotation))
     {
       while (!tf_buffer_.canTransform(base_frame_, camera_frame_, tf2::TimePointZero)) {

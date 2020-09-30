@@ -25,6 +25,8 @@ SOFTWARE.
 #ifndef ROS2_T260__T260_HPP_
 #define ROS2_T260__T260_HPP_
 
+#include <unistd.h>
+
 #include <librealsense2/rs.hpp>
 #include <iostream>
 #include <iomanip>
@@ -71,10 +73,7 @@ class T260 : public rclcpp_lifecycle::LifecycleNode
   rs2::context ctx_;  // Create librealsense context for managing devices
   rs2::pipeline pipe_;
   rs2::config cfg_;
-  std::shared_ptr<rs2::pose_sensor> tm_sensor_;
-  rs2::pipeline_profile pipe_profile_;
-  rs2::device device_;
-  std::shared_ptr<rs2::wheel_odometer> wheel_odometer_;
+  std::string serial_num_;
 
   tf2::BufferCore tf_buffer_;
   tf2_ros::TransformListener transform_listener_;
@@ -100,15 +99,16 @@ class T260 : public rclcpp_lifecycle::LifecycleNode
   rclcpp::Subscription<rcl_interfaces::msg::ParameterEvent>::SharedPtr parameter_event_sub_;
 
   /// Parameters
-  bool hardware_reset_{}, enable_fisheye_streams_, enable_pose_stream_;
+  bool hardware_reset_, enable_fisheye_streams_, enable_pose_stream_;
   bool enable_mapping_, enable_pose_jumping_, enable_relocalization_, enable_dynamic_calibration_,
     enable_map_preservation_;
-  std::string serial_num_;
   std::string odom_frame_, base_frame_, camera_frame_;
   bool publish_odom_, publish_tf_;
   double pose_cov_, rotation_cov_;
   std::string calib_odom_file_;  // https://github.com/IntelRealSense/librealsense/pull/3462
 
+  /// Helpers
+  std::string get_device(const rs2::device_list & devices);
   void initialize_odometry_input();
 
   void notifications_cb(const rs2::notification & n);
