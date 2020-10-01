@@ -25,8 +25,6 @@ SOFTWARE.
 #ifndef ROS2_T260__T260_HPP_
 #define ROS2_T260__T260_HPP_
 
-#include <unistd.h>
-
 #include <librealsense2/rs.hpp>
 #include <iostream>
 #include <iomanip>
